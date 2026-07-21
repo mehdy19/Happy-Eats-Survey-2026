@@ -1114,19 +1114,40 @@
             });
         });
 
-        // Other input handling
-        document.querySelectorAll('input[value="other"]').forEach(radio => {
-            radio.addEventListener('change', function() {
-                const otherInput = this.closest('.option-item').querySelector('.other-input');
-                if (otherInput) {
-                    document.querySelectorAll('.other-input').forEach(inp => {
-                        if (inp !== otherInput) inp.classList.remove('show');
-                    });
-                    otherInput.classList.toggle('show', this.checked);
-                    if (this.checked) otherInput.focus();
-                }
+        // Other input handling — FIXED
+        function setupOtherInputs() {
+            // For each "other" option, find its related text input
+            document.querySelectorAll('input[value="other"]').forEach(input => {
+                const optionItem = input.closest('.option-item');
+                const otherInput = optionItem ? optionItem.querySelector('.other-input') : null;
+
+                if (!otherInput) return;
+
+                input.addEventListener('change', function() {
+                    // For radios: hide all other inputs in the same group first
+                    if (input.type === 'radio') {
+                        const groupName = input.name;
+                        document.querySelectorAll('input[name="' + groupName + '"]').forEach(r => {
+                            const siblingOther = r.closest('.option-item')?.querySelector('.other-input');
+                            if (siblingOther && siblingOther !== otherInput) {
+                                siblingOther.classList.remove('show');
+                                siblingOther.value = '';
+                            }
+                        });
+                    }
+
+                    // Show/hide this other input
+                    if (input.checked) {
+                        otherInput.classList.add('show');
+                        setTimeout(() => otherInput.focus(), 100);
+                    } else {
+                        otherInput.classList.remove('show');
+                        otherInput.value = '';
+                    }
+                });
             });
-        });
+        }
+        setupOtherInputs();
 
         // Character counter
         document.querySelectorAll('.textarea-input').forEach(textarea => {
@@ -1155,26 +1176,37 @@
                 if (cb.checked) data[cb.name].push(cb.value);
             });
 
-            // Handle radios and text inputs
-            form.querySelectorAll('input[type="radio"]:checked, input[type="text"], textarea').forEach(input => {
-                if (input.type === 'radio') {
-                    data[input.name] = input.value;
-                    // Add other text if applicable
-                    if (input.value === 'other') {
-                        const otherInput = input.closest('.option-item').querySelector('.other-input');
-                        if (otherInput && otherInput.value) {
-                            data[input.name + '_other'] = otherInput.value;
-                        }
+            // Handle radios
+            form.querySelectorAll('input[type="radio"]:checked').forEach(input => {
+                data[input.name] = input.value;
+                // Capture "other" text for radios
+                if (input.value === 'other') {
+                    const otherInput = input.closest('.option-item')?.querySelector('.other-input');
+                    if (otherInput && otherInput.value.trim()) {
+                        data[input.name + '_other'] = otherInput.value.trim();
                     }
-                } else if (input.value) {
-                    data[input.name] = input.value;
+                }
+            });
+
+            // Handle text inputs and textareas (excluding "other" inputs)
+            form.querySelectorAll('input[type="text"]:not(.other-input), textarea').forEach(input => {
+                if (input.value.trim()) {
+                    data[input.name] = input.value.trim();
+                }
+            });
+
+            // Handle "other" text for checkboxes
+            form.querySelectorAll('input[type="checkbox"][value="other"]:checked').forEach(cb => {
+                const otherInput = cb.closest('.option-item')?.querySelector('.other-input');
+                if (otherInput && otherInput.value.trim()) {
+                    data[cb.name + '_other'] = otherInput.value.trim();
                 }
             });
 
             console.log('Survey Data:', data);
 
             // إرسال البيانات إلى Google Sheets
-            fetch('https://script.google.com/macros/s/AKfycbwC2GRXCvtFa8uxRBZRlG_xfg5xsv3Sac5N2xOoVSXbXfLcN5M59q4LHMRvDDIpfWDx/exec', {
+            fetch('https://script.google.com/macros/s/AKfycbyXPFog3l_AgM564-7W4vEV6P-VAtzaca4rWoDJ6pq3OB-NeC21J_iVSglccxkAxjkA/exec', {
                 method: 'POST',
                 mode: 'no-cors',
                 headers: {
